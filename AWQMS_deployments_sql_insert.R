@@ -28,6 +28,8 @@ import_deployments$enddate <-  as.POSIXct(import_deployments[["enddate"]] * (60*
 import_deployments$startdate <- force_tz(import_deployments$startdate, tzone = "america/los_angeles")
 import_deployments$enddate <- force_tz(import_deployments$enddate, tzone = "america/los_angeles")
 
+import_deployments$startdate_date <- as.Date(import_deployments$startdate, tz ="america/los_angeles" )
+
 
 # import_equipment[is.na(import_equipment)] <- ""
 # import_deployments[is.na(import_deployments)] <- ""
@@ -135,14 +137,13 @@ Equipment_insert <- unique_equipment %>%
 
 
 # Deployments -------------------------------------------------------------
- unique_deployments <- import_deployments %>%
+AWQMS_deployments <- AWQMS_deployments %>%
+  mutate(startdate = ymd(startdate)) 
+
+unique_deployments <- import_deployments %>%
   distinct(org, EquipID,  Project1, Project2, station, startdate, enddate, Media, .keep_all = TRUE) %>%
-  left_join(AWQMS_deployments, by = c("org" = "org_id", "EquipID" = "eqp_id", "Station" = "mloc_id","startdate" = "eqpdpl_start_time" )) %>%
-  filter(!is.na(tmzone_cd))
-
-
-
-%>%
+  left_join(AWQMS_deployments, by = c("org" = "org_id", "EquipID" = "eqp_id", "Station" = "mloc_id","startdate_date" = "startdate" )) %>%
+  filter(is.na(eqpdpl_start_time)) %>%
   mutate(insert = paste0("insert into equipment_deployment (eqp_uid, org_uid, mloc_uid, eqpdpl_frequency_minutes, eqpdpl_start_time, eqpdpl_end_time, eqpdpl_depth_meters, usr_uid_last_change, eqpdpl_last_change_date, acmed_uid, amsub_uid, tmzone_uid) values ((select eqp_uid from equipment where eqp_id = '",
                          EquipID,"' and org_uid = (select org_uid from organization where org_id = '",
                          org,"')),(select org_uid from organization where org_id = '",
@@ -155,7 +156,7 @@ Equipment_insert <- unique_equipment %>%
                          TimeZone,"'));"))
 
 
-#write(unique_deployments$insert, file = paste0(save_dir,"03 - deployments.sql"))  
+write(unique_deployments$insert, file = paste0(save_dir,"03 - deployments2.sql"))  
 
 
 # Deployments Projects ----------------------------------------------------
