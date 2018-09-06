@@ -2,12 +2,14 @@ library(tidyverse)
 library(openxlsx)
 library(RODBC)
 library(rgdal)
+library(lubridate)
+library(xlsx)
 
 
 
 
 #file <- file.choose()
-file <- "A:/AWQMS/VOLMON/Deployments/Combined_Deployments v2.xlsx"
+file <- "A:/AWQMS/VOLMON/Deployments/Combined_Deployments v2 - dates corrected.xlsx"
 save_dir <- "//deqlead-lims/SERVERFOLDERS/AWQMS/Continuous/Continuous Data Scripts/test outputs/"
 equipment_sheet = "Equipment from LASAR"
 deployment_sheet = "Deployments from LASAR"
@@ -15,8 +17,17 @@ deployment_sheet = "Deployments from LASAR"
 
 
 # Read deployments sheet from dataset
-import_equipment <- read.xlsx(file, sheet = equipment_sheet)
-import_deployments <- read.xlsx(file, sheet = deployment_sheet)
+import_equipment <-openxlsx:: read.xlsx(file, sheet = equipment_sheet)
+import_deployments <- openxlsx::read.xlsx(file, sheet = deployment_sheet)
+import_deployments$startdate <-  as.POSIXct(import_deployments[["startdate"]] * (60*60*24)
+                                             , origin="1899-12-30"
+                                             , tz="GMT")
+import_deployments$enddate <-  as.POSIXct(import_deployments[["enddate"]] * (60*60*24)
+                                             , origin="1899-12-30"
+                                             , tz="GMT")
+import_deployments$startdate <- force_tz(import_deployments$startdate, tzone = "america/los_angeles")
+import_deployments$enddate <- force_tz(import_deployments$enddate, tzone = "america/los_angeles")
+
 
 # import_equipment[is.na(import_equipment)] <- ""
 # import_deployments[is.na(import_deployments)] <- ""
@@ -36,6 +47,14 @@ AWQMS_Projects = sqlQuery(AWQMS.sql, "select project.org_uid, project.prj_id, pr
 AWQMS_Equipment = sqlQuery(AWQMS.sql, "SELECT        organization.org_id, organization.org_name, equipment.eqp_id, equipment.eqp_name, equipment.eqp_comments
 FROM            equipment INNER JOIN
                          organization ON equipment.org_uid = organization.org_uid", stringsAsFactors = FALSE)
+
+AWQMS_deployments = sqlQuery(AWQMS.sql, "SELECT        organization.org_id, monitoring_location.mloc_id, equipment.eqp_id, equipment_deployment.eqpdpl_start_time, equipment_deployment.eqpdpl_end_time, CONVERT(date, equipment_deployment.eqpdpl_start_time) 
+                         AS startdate, time_zone.tmzone_cd
+FROM            organization INNER JOIN
+                         monitoring_location ON organization.org_uid = monitoring_location.org_uid INNER JOIN
+                         equipment_deployment ON organization.org_uid = equipment_deployment.org_uid AND monitoring_location.mloc_uid = equipment_deployment.mloc_uid INNER JOIN
+                         time_zone ON equipment_deployment.tmzone_uid = time_zone.tmzone_uid INNER JOIN
+                         equipment ON organization.org_uid = equipment.org_uid AND equipment_deployment.eqp_uid = equipment.eqp_uid")
 
 
 
@@ -118,6 +137,12 @@ Equipment_insert <- unique_equipment %>%
 # Deployments -------------------------------------------------------------
  unique_deployments <- import_deployments %>%
   distinct(org, EquipID,  Project1, Project2, station, startdate, enddate, Media, .keep_all = TRUE) %>%
+  left_join(AWQMS_deployments, by = c("org" = "org_id", "EquipID" = "eqp_id", "Station" = "mloc_id","startdate" = "eqpdpl_start_time" )) %>%
+  filter(!is.na(tmzone_cd))
+
+
+
+%>%
   mutate(insert = paste0("insert into equipment_deployment (eqp_uid, org_uid, mloc_uid, eqpdpl_frequency_minutes, eqpdpl_start_time, eqpdpl_end_time, eqpdpl_depth_meters, usr_uid_last_change, eqpdpl_last_change_date, acmed_uid, amsub_uid, tmzone_uid) values ((select eqp_uid from equipment where eqp_id = '",
                          EquipID,"' and org_uid = (select org_uid from organization where org_id = '",
                          org,"')),(select org_uid from organization where org_id = '",
