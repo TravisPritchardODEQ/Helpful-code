@@ -37,6 +37,8 @@ AWQMS_Equipment = sqlQuery(AWQMS.sql, "SELECT        organization.org_id, organi
 FROM            equipment INNER JOIN
                          organization ON equipment.org_uid = organization.org_uid", stringsAsFactors = FALSE)
 
+
+
 odbcClose(AWQMS.sql)
 
 
@@ -85,7 +87,7 @@ projects <- append(projects, "rollback transaction;", after =length(projects))
 projects <- append(projects, "commit transaction;;", after =length(projects))
 
 #write txt files with sql extention
-write(projects, file = paste0(save_dir,"01 - projects v2.sql"))
+#write(projects, file = paste0(save_dir,"01 - projects v2.sql"))
 
 
 # Equipment ---------------------------------------------------------------
@@ -109,7 +111,7 @@ Equipment_insert <- unique_equipment %>%
                          Comments, "',1,getdate(),'','','",
                          Name, "','','Y');"))
 
-write(Equipment_insert$insert, file = "//deqlead-lims/SERVERFOLDERS/AWQMS/Continuous/Continuous Data Scripts/test outputs/02 - equipment.sql")
+#write(Equipment_insert$insert, file = "//deqlead-lims/SERVERFOLDERS/AWQMS/Continuous/Continuous Data Scripts/test outputs/02 - equipment.sql")
 
 
 
@@ -128,7 +130,7 @@ write(Equipment_insert$insert, file = "//deqlead-lims/SERVERFOLDERS/AWQMS/Contin
                          TimeZone,"'));"))
 
 
-write(unique_deployments$insert, file = paste0(save_dir,"03 - deployments.sql"))  
+#write(unique_deployments$insert, file = paste0(save_dir,"03 - deployments.sql"))  
 
 
 # Deployments Projects ----------------------------------------------------
@@ -154,7 +156,7 @@ deployment_projects <- import_deployments %>%
                          
 
 
-write(deployment_projects$insert, file = paste0(save_dir,"05 - deployment_projects2.sql"))     
+#write(deployment_projects$insert, file = paste0(save_dir,"05 - deployment_projects2.sql"))     
     
 
 
